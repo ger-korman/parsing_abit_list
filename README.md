@@ -23,7 +23,7 @@
 ### 1. Клонируйте репозиторий
 
 ```bash
-git clone https://github.com/ger-korman/itmo-tracker.git
+git clone https://github.com/ger-korman/parsing_abit_list.git
 cd itmo-tracker
 ```
 
