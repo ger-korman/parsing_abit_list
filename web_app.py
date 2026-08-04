@@ -358,9 +358,9 @@ def current_status():
         'my_score': my_score,
         'my_priority': my_priority,
         'your_position': my_position,
-        'real_position': real_position,  # <-- ИСПОЛЬЗУЕМ ИЗ threat
+        'real_position': real_position,
         'budget_places': places,
-        'competitors_count': competitors_count,  # <-- ИСПОЛЬЗУЕМ ИЗ threat
+        'competitors_count': competitors_count,
         'total_above': threat.get('total_above', 0) if threat else 0,
         'real_threats': real_threats,
         'potential_escapees': potential_escapees,
@@ -408,7 +408,6 @@ def history():
         position = row['position']
         score = row['total_scores']
         
-        # ТА ЖЕ ЛОГИКА, ЧТО И В /api/current_status
         # Реальное место = все с баллом выше И с согласием И балл >= 60
         real_pos = conn.execute(
             '''SELECT COUNT(*)  as real_pos
