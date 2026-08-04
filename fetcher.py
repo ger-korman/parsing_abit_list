@@ -1,140 +1,147 @@
 # fetcher.py
 import requests
-import json
+import time
+import random
+import sqlite3
+from datetime import datetime
+from config import DB_PATH
 
-def fetch_all_programs(degree: str = "master") -> list:
-    """
-    Получает список всех программ с названиями.
-    Поддерживает разные форматы ответа.
-    """
-    url = "https://abit.itmo.ru/_next/data/NUJ_R0N1JIDBv5iu7R8Lb/ru/directions.json"
-    params = {"degree": degree}
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    
-    try:
-        response = requests.get(url, params=params, headers=headers, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        
-        programs = []
-        page_props = data.get('pageProps', {})
-        
-        # Вариант 1: directions -> programs (как было раньше)
-        directions = page_props.get('directions', [])
-        
-        if directions:
-            for direction in directions:
-                direction_title = direction.get('title', '')
-                for program in direction.get('programs', []):
-                    programs.append({
-                        "id": program.get('id'),
-                        "code": program.get('code', ''),
-                        "name": program.get('name', program.get('title', '')),
-                        "direction_title": direction_title,
-                        "budget_places": program.get('budget_places', 0)
-                    })
-            print(f"✅ Найдено {len(programs)} программ через directions")
-            return programs
-        
-        # Вариант 2: напрямую programs
-        programs_list = page_props.get('programs', [])
-        if programs_list:
-            for p in programs_list:
-                programs.append({
-                    "id": p.get('id'),
-                    "code": p.get('code', ''),
-                    "name": p.get('name', p.get('title', '')),
-                    "direction_title": p.get('direction', ''),
-                    "budget_places": p.get('budget_places', 0)
-                })
-            print(f"✅ Найдено {len(programs)} программ через programs")
-            return programs
-        
-        # Вариант 3: programList -> general_competition (из вашего JSON)
-        program_list = page_props.get('programList', {})
-        if program_list:
-            # Может быть список программ в другом месте
-            for key in ['directions', 'items', 'list']:
-                items = program_list.get(key, [])
-                if items:
-                    for item in items:
-                        if isinstance(item, dict):
-                            programs.append({
-                                "id": item.get('id'),
-                                "code": item.get('code', ''),
-                                "name": item.get('name', item.get('title', '')),
-                                "direction_title": item.get('direction_title', ''),
-                                "budget_places": item.get('budget_places', 0)
-                            })
-                    print(f"✅ Найдено {len(programs)} программ через programList.{key}")
-                    return programs
-        
-        # Вариант 4: ищем вложенные структуры
-        print("⚠️ Не найдена стандартная структура, ищем рекурсивно...")
-        programs = find_programs_recursive(page_props)
-        if programs:
-            print(f"✅ Найдено {len(programs)} программ рекурсивным поиском")
-            return programs
-        
-        # Если ничего не нашли, возвращаем заглушку с вашей программой
-        print("⚠️ Не удалось найти программы, возвращаю заглушку")
-        return [
-            {"id": 2362, "code": "01.04.02", "name": "Программное обеспечение высоконагруженных систем", "budget_places": 35}
-        ]
-        
-    except Exception as e:
-        print(f"❌ Ошибка получения списка программ: {e}")
-        return []
+# ID программ по степеням
+BACHELOR_IDS = list(range(2334, 2358)) + [2449]  # 2334-2357, 2449
+MASTER_IDS = list(range(2358, 2449))  # 2358-2448
 
-def find_programs_recursive(obj, depth=0):
-    """
-    Рекурсивный поиск программ в JSON.
-    """
-    if depth > 5:  # Защита от бесконечной рекурсии
-        return []
-    
-    programs = []
-    
-    if isinstance(obj, dict):
-        # Проверяем, похоже ли на программу
-        if 'id' in obj and ('name' in obj or 'title' in obj or 'code' in obj):
-            programs.append({
-                "id": obj.get('id'),
-                "code": obj.get('code', ''),
-                "name": obj.get('name', obj.get('title', '')),
-                "direction_title": obj.get('direction_title', ''),
-                "budget_places": obj.get('budget_places', 0)
-            })
-        
-        # Рекурсивно ищем в значениях
-        for value in obj.values():
-            programs.extend(find_programs_recursive(value, depth + 1))
-    
-    elif isinstance(obj, list):
-        for item in obj:
-            programs.extend(find_programs_recursive(item, depth + 1))
-    
-    return programs
 
-def fetch_program_data(program_id: int) -> dict:
-    """
-    Получает JSON-данные по программе через Next.js API.
-    """
-    base_url = "https://abit.itmo.ru/_next/data/NUJ_R0N1JIDBv5iu7R8Lb/ru/rating/master/budget"
-    url = f"{base_url}/{program_id}.json"
+def get_all_program_ids():
+    """Возвращает ID всех программ (бакалавриат + магистратура)."""
+    return BACHELOR_IDS + MASTER_IDS
+
+
+def get_degree_for_program(program_id):
+    """Определяет степень по ID программы."""
+    if program_id in BACHELOR_IDS:
+        return "bachelor"
+    elif program_id in MASTER_IDS:
+        return "master"
+    else:
+        return "master"  # fallback
+
+
+def fetch_program_data(program_id):
+    """Загружает данные по программе (автоматически определяет степень)."""
+    degree = get_degree_for_program(program_id)
+    
+    url = f"https://abit.itmo.ru/_next/data/NUJ_R0N1JIDBv5iu7R8Lb/ru/rating/{degree}/budget/{program_id}.json"
     params = {
-        "degree": "master",
+        "degree": degree,
         "financing": "budget",
         "id": program_id
     }
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Connection": "keep-alive",
+        "Cache-Control": "no-cache"
     }
     
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=15)
+        time.sleep(random.uniform(1.0, 2.5))
+        response = requests.get(url, params=params, headers=headers, timeout=30)
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Ошибка при загрузке программы {program_id}: {e}")
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"  ⚠️ Программа {program_id} не найдена (404)")
+        else:
+            print(f"  ❌ HTTP ошибка {program_id}: {e}")
         return None
+    except Exception as e:
+        print(f"  ❌ Ошибка {program_id}: {e}")
+        return None
+
+
+def save_applicants(program_id, data):
+    """Сохраняет абитуриентов в БД."""
+    if not data:
+        return 0
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    snapshot_time = datetime.now().isoformat()
+    
+    try:
+        page_props = data.get("pageProps", {})
+        program_list = page_props.get("programList", {})
+        applicants = program_list.get("general_competition", [])
+        
+        if not applicants:
+            print(f"  ⚠️ Нет абитуриентов для программы {program_id}")
+            return 0
+        
+        count = 0
+        for app in applicants:
+            sspvo_id = app.get('sspvo_id')
+            if not sspvo_id:
+                continue
+            
+            c.execute('''INSERT OR REPLACE INTO applicants 
+                         (program_id, sspvo_id, priority, total_scores, exam_scores, ia_scores,
+                          diploma_average, is_send_agreement, status, main_top_priority,
+                          highest_passageway_priority, position, snapshot_time)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (program_id,
+                       sspvo_id,
+                       app.get('priority'),
+                       app.get('total_scores', 0),
+                       app.get('exam_scores', 0),
+                       app.get('ia_scores', 0),
+                       app.get('diploma_average'),
+                       1 if app.get('is_send_agreement') else 0,
+                       app.get('status'),
+                       1 if app.get('main_top_priority') else 0,
+                       1 if app.get('highest_passageway_priority') else 0,
+                       app.get('position'),
+                       snapshot_time))
+            count += 1
+        
+        conn.commit()
+        print(f"  ✅ Сохранено {count} абитуриентов для программы {program_id}")
+        return count
+    except Exception as e:
+        print(f"  ❌ Ошибка сохранения программы {program_id}: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def fetch_all_programs_data():
+    """Загружает данные по всем программам (бакалавриат + магистратура)."""
+    program_ids = get_all_program_ids()
+    total = 0
+    success = 0
+    
+    print(f"📋 Всего программ: {len(program_ids)}")
+    print(f"   Бакалавриат: {len(BACHELOR_IDS)}")
+    print(f"   Магистратура: {len(MASTER_IDS)}")
+    print("-" * 50)
+    
+    for i, prog_id in enumerate(program_ids):
+        degree = get_degree_for_program(prog_id)
+        print(f"\n[{i+1}/{len(program_ids)}] 📡 Загрузка {degree} {prog_id}...")
+        
+        data = fetch_program_data(prog_id)
+        if data:
+            count = save_applicants(prog_id, data)
+            if count > 0:
+                success += 1
+                total += count
+        
+        if i < len(program_ids) - 1:
+            time.sleep(random.uniform(1.0, 3.0))
+    
+    print("\n" + "=" * 50)
+    print(f"📊 ИТОГИ:")
+    print(f"  ✅ Успешно: {success} программ")
+    print(f"  👥 Всего абитуриентов: {total}")
+    print("=" * 50)

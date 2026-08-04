@@ -1,92 +1,45 @@
-# analyzer.py
 import sqlite3
-from config import DB_PATH, MY_SSPVO_ID, MY_PROGRAM_ID, MY_SCORE
+from config import DB_PATH
 
-
-def get_applicant_applications(conn, applicant_id: str, snapshot_time: str):
-    """
-    Получает все заявки абитуриента на разные программы в текущем снапшоте.
-    """
-    c = conn.cursor()
-    c.execute('''SELECT program_id, priority, total_scores, status, position
-                 FROM applicants 
-                 WHERE sspvo_id = ? AND snapshot_time = ?
-                 ORDER BY priority ASC''',
-              (applicant_id, snapshot_time))
-    return c.fetchall()
-
-
-def get_program_budget_places(conn, program_id: int):
-    """Возвращает количество бюджетных мест на программе."""
+def get_program_budget_places(conn, program_id):
     c = conn.cursor()
     c.execute('SELECT budget_places FROM programs WHERE id = ?', (program_id,))
     row = c.fetchone()
     return row[0] if row else 0
 
-
-def get_applicant_rank_on_program(conn, applicant_id: str, program_id: int, snapshot_time: str):
+def will_applicant_stay_optimized(conn, applicant_id, max_priority, snapshot_time):
     """
-    Возвращает позицию абитуриента на конкретной программе.
+    Оптимизированная проверка: проходит ли абитуриент на программы с приоритетом < max_priority.
+    Возвращает False (уйдет), если находит хотя бы одну программу выше по приоритету, куда он проходит.
     """
     c = conn.cursor()
-    c.execute('''SELECT position 
+    
+    # Получаем все программы абитуриента с приоритетом строго ВЫШЕ (меньше число), чем текущий
+    c.execute('''SELECT program_id, priority, position
                  FROM applicants 
-                 WHERE sspvo_id = ? AND program_id = ? AND snapshot_time = ?
-                 ORDER BY snapshot_time DESC LIMIT 1''',
-              (applicant_id, program_id, snapshot_time))
-    row = c.fetchone()
-    return row[0] if row else None
-
-
-def is_applicant_passing(conn, applicant_id: str, program_id: int, snapshot_time: str):
-    """
-    Проверяет, проходит ли абитуриент на программу.
-    Условие: его позиция на программе <= количество бюджетных мест.
-    """
-    rank = get_applicant_rank_on_program(conn, applicant_id, program_id, snapshot_time)
-    if rank is None:
-        return False
+                 WHERE sspvo_id = ? AND snapshot_time = ? AND priority < ?
+                 ORDER BY priority ASC''',
+              (applicant_id, snapshot_time, max_priority))
     
-    places = get_program_budget_places(conn, program_id)
-    return rank <= places
-
-
-def will_applicant_stay(conn, applicant_id: str, current_priority: int, current_program_id: int, snapshot_time: str):
-    """
-    Проверяет, останется ли абитуриент на текущей программе.
-    Возвращает:
-        - True: останется (это конкурент)
-        - False: уйдет на более приоритетную программу (не конкурент)
-    """
-    # Получаем все заявки абитуриента, отсортированные по приоритету
-    all_apps = get_applicant_applications(conn, applicant_id, snapshot_time)
+    higher_priority_apps = c.fetchall()
     
-    # Проходим по всем его заявкам с приоритетом выше текущего
-    for app in all_apps:
-        prog_id, priority, total_scores, status, position = app
+    for prog_id, priority, position in higher_priority_apps:
+        places = get_program_budget_places(conn, prog_id)
         
-        # Если дошли до текущей программы или ниже — проверяем только выше
-        if priority >= current_priority:
-            break
-        
-        # Проверяем, проходит ли он на эту более приоритетную программу
-        if is_applicant_passing(conn, applicant_id, prog_id, snapshot_time):
-            # Он проходит на более приоритетную программу — уйдет от вас
-            return False
-    
-    # Если не прошел ни на одну из более приоритетных программ
-    # ИЛИ у него нет других заявок с более высоким приоритетом
-    return True
+        # Если он проходит на более приоритетную программу по месту в списке
+        if position <= places:
+            return False # Он уйдет
+            
+    return True # Не уходит (остается конкурентом)
 
-
-def analyze_threats(conn, program_id: int, my_sspvo_id: str, my_score: float):
+def analyze_threats(conn, program_id, my_sspvo_id, my_score):
     """
-    Анализирует угрозы для вашей программы.
-    Возвращает словарь с результатами анализа.
+    Анализирует угрозы для выбранной программы.
+    Учитываются ТОЛЬКО люди, стоящие выше по списку!
     """
     c = conn.cursor()
     
-    # Получаем последний снапшот
+    # 1. Последний снапшот
     c.execute('SELECT MAX(snapshot_time) FROM applicants WHERE program_id = ?', (program_id,))
     result = c.fetchone()
     if not result or not result[0]:
@@ -94,83 +47,71 @@ def analyze_threats(conn, program_id: int, my_sspvo_id: str, my_score: float):
     
     latest_time = result[0]
     
-    # 1. Получаем всех абитуриентов с баллом выше вашего
-    c.execute('''SELECT sspvo_id, priority, total_scores, status, position,
-                        is_send_agreement, diploma_average
+    # 2. Позиция пользователя
+    c.execute('''SELECT position FROM applicants 
+                 WHERE program_id = ? AND snapshot_time = ? AND sspvo_id = ?''',
+              (program_id, latest_time, my_sspvo_id))
+    user_pos = c.fetchone()
+    if not user_pos:
+        return None
+    
+    my_position = user_pos[0]
+    
+    # ===== ВЫБОРКА ВСЕХ ВОЗМОЖНЫХ КОНКУРЕНТОВ (СТРОГО ВЫШЕ ПО СПИСКУ) =====
+    # Жесткий фильтр по позиции: position < my_position
+    c.execute('''SELECT sspvo_id, priority
                  FROM applicants 
                  WHERE program_id = ? 
-                   AND snapshot_time = ? 
-                   AND total_scores > ?
-                 ORDER BY total_scores DESC''',
-              (program_id, latest_time, my_score))
+                   AND snapshot_time = ?
+                   AND position < ?       -- Обязательно ВЫШЕ по списку
+                   AND sspvo_id != ?      -- Не я
+                   AND is_send_agreement = 1 -- Обязательно есть согласие
+                 ORDER BY position ASC''',
+              (program_id, latest_time, my_position, my_sspvo_id))
     
-    above_me = c.fetchall()
+    higher_applicants = c.fetchall()
     
-    real_threats = 0       # Останутся здесь (конкуренты)
-    potential_escapees = 0 # Уйдут на другие программы
-    no_consent = 0         # Нет согласия на зачисление
-    total_above = len(above_me)
+    real_competitors = 0
+    potential_escapees = 0
     
-    for applicant in above_me:
-        sspvo_id, priority, score, status, position, has_consent, avg_grade = applicant
+    # Анализируем каждого абитуриента выше по списку
+    for app in higher_applicants:
+        sspvo_id, priority = app
         
-        # Если нет согласия — не конкурент
-        if not has_consent:
-            no_consent += 1
-            continue
-        
-        # Если статус "pass_another" — уже проходит на другую программу
-        if status == "pass_another" or status == "recommended_other":
-            potential_escapees += 1
-            continue
-        
-        # Если приоритет == 1 — это его главная цель, останется
+        # Если у него приоритет равен 1, он автоматически остается (некуда уходить)
         if priority == 1:
-            real_threats += 1
+            real_competitors += 1
             continue
+            
+        # Если приоритет больше 1, проверяем, уходит ли он наверх
+        # Передаем max_priority = priority (будет проверять только программы с приоритетом меньше этого числа)
+        stays_here = will_applicant_stay_optimized(conn, sspvo_id, priority, latest_time)
         
-        # Если приоритет > 1 — проверяем, не уйдет ли он на более приоритетную программу
-        if will_applicant_stay(conn, sspvo_id, priority, program_id, latest_time):
-            # Не проходит на более приоритетные — останется здесь
-            real_threats += 1
+        if stays_here:
+            real_competitors += 1     # Останется здесь - КОНКУРЕНТ
         else:
-            # Проходит на более приоритетную — уйдет
-            potential_escapees += 1
-    
-    # Получаем количество бюджетных мест
+            potential_escapees += 1   # Уйдет наверх
+
+    real_position = real_competitors + 1
     places = get_program_budget_places(conn, program_id)
-    
-    # Ваша позиция среди всех (с учетом согласия)
-    c.execute('''SELECT COUNT(*) + 1 FROM applicants 
-                 WHERE program_id = ? AND snapshot_time = ? 
-                   AND total_scores > ?''',
-              (program_id, latest_time, my_score))
-    your_position = c.fetchone()[0]
-    
-    # Ваша позиция среди реальных конкурентов (без тех, кто уйдет)
-    real_position = real_threats + 1
     
     return {
         "snapshot_time": latest_time,
         "places": places,
-        "total_above": total_above,
-        "real_threats": real_threats,
-        "potential_escapees": potential_escapees,
-        "no_consent": no_consent,
-        "your_position": your_position,
+        "competitors_count": real_competitors,
         "real_position": real_position,
-        "is_safe": real_position <= places,
-        "needs_to_leave": max(0, real_position - places)  # Сколько должно уйти
+        "is_safe_by_position": real_position <= places,
+        "needs_to_leave": max(0, real_position - places),
+        "my_position": my_position,
+        "my_score": my_score
     }
 
-
-def get_competitors_list(conn, program_id: int, my_sspvo_id: str, my_score: float, limit: int = 20):
+def get_competitors_list(conn, program_id, my_sspvo_id, my_score, limit=50):
     """
-    Возвращает список конкурентов с анализом для каждого.
+    Возвращает список ВСЕХ, кто стоит выше по списку (с детальным анализом).
     """
     c = conn.cursor()
     
-    # Последний снапшот
     c.execute('SELECT MAX(snapshot_time) FROM applicants WHERE program_id = ?', (program_id,))
     result = c.fetchone()
     if not result or not result[0]:
@@ -178,67 +119,84 @@ def get_competitors_list(conn, program_id: int, my_sspvo_id: str, my_score: floa
     
     latest_time = result[0]
     
-    # Получаем всех абитуриентов с баллом выше вашего
+    c.execute('''SELECT position FROM applicants 
+                 WHERE program_id = ? AND snapshot_time = ? AND sspvo_id = ?''',
+              (program_id, latest_time, my_sspvo_id))
+    user_pos = c.fetchone()
+    if not user_pos:
+        return []
+    
+    my_position = user_pos[0]
+    
+    # ВАЖНО: Сначала фильтруем ТОЛЬКО тех, кто ВЫШЕ по списку (position < my_position)
     c.execute('''SELECT sspvo_id, priority, total_scores, status, position,
-                        is_send_agreement, diploma_average
+                        is_send_agreement
                  FROM applicants 
                  WHERE program_id = ? 
                    AND snapshot_time = ? 
-                   AND total_scores > ?
+                   AND position < ? -- Только те, кто ВЫШЕ!
                  ORDER BY position ASC
                  LIMIT ?''',
-              (program_id, latest_time, my_score, limit))
+              (program_id, latest_time, my_position, limit))
     
-    above_me = c.fetchall()
+    applicants = c.fetchall()
     
-    competitors = []
-    for applicant in above_me:
-        sspvo_id, priority, score, status, position, has_consent, avg_grade = applicant
+    result_list = []
+    for app in applicants:
+        sspvo_id, priority, score, status, position, has_consent = app
         
-        # Определяем, останется ли абитуриент
+        # 1. Если нет согласия - сразу статус "не претендует"
         if not has_consent:
-            will_stay = False
-            reason = "Нет согласия на зачисление"
-        elif status == "pass_another" or status == "recommended_other":
-            will_stay = False
-            reason = "Проходит на другую программу"
-        elif priority == 1:
-            will_stay = True
-            reason = "Главный приоритет"
+            result_list.append({
+                "sspvo_id": sspvo_id,
+                "total_scores": score,
+                "priority": priority,
+                "position": position,
+                "is_send_agreement": has_consent,
+                "will_stay": False,
+                "reason": "❌ Не претендует (нет согласия)",
+                "badge_type": "без согласия"
+            })
+            continue
+            
+        # 2. Если есть согласие и приоритет 1 - гарантированно остается
+        if priority == 1:
+            result_list.append({
+                "sspvo_id": sspvo_id,
+                "total_scores": score,
+                "priority": priority,
+                "position": position,
+                "is_send_agreement": has_consent,
+                "will_stay": True,
+                "reason": "⚠️ Останется (приоритет 1)",
+                "badge_type": "останется"
+            })
+            continue
+            
+        # 3. Если приоритет > 1, проверяем уход наверх
+        stays_here = will_applicant_stay_optimized(conn, sspvo_id, priority, latest_time)
+            
+        if stays_here:
+            result_list.append({
+                "sspvo_id": sspvo_id,
+                "total_scores": score,
+                "priority": priority,
+                "position": position,
+                "is_send_agreement": has_consent,
+                "will_stay": True,
+                "reason": "⚠️ Останется (не проходит на более высокий приоритет)",
+                "badge_type": "останется"
+            })
         else:
-            will_stay = will_applicant_stay(conn, sspvo_id, priority, program_id, latest_time)
-            reason = "Останется здесь" if will_stay else "Уйдет на более приоритетную"
-        
-        competitors.append({
-            "sspvo_id": sspvo_id,
-            "total_scores": score,
-            "priority": priority,
-            "status": status,
-            "position": position,
-            "is_send_agreement": has_consent,
-            "diploma_average": avg_grade,
-            "will_stay": will_stay,
-            "reason": reason
-        })
+            result_list.append({
+                "sspvo_id": sspvo_id,
+                "total_scores": score,
+                "priority": priority,
+                "position": position,
+                "is_send_agreement": has_consent,
+                "will_stay": False,
+                "reason": "✅ Уходит на более приоритетную программу",
+                "badge_type": "уйдет"
+            })
     
-    return competitors
-
-
-if __name__ == "__main__":
-    # Тестовый запуск
-    conn = sqlite3.connect(DB_PATH)
-    
-    result = analyze_threats(conn, MY_PROGRAM_ID, MY_SSPVO_ID, MY_SCORE)
-    if result:
-        print("📊 АНАЛИЗ УГРОЗ:")
-        print(f"  Бюджетных мест: {result['places']}")
-        print(f"  Всего выше вас: {result['total_above']}")
-        print(f"  Реально останутся: {result['real_threats']}")
-        print(f"  Уйдут на другие: {result['potential_escapees']}")
-        print(f"  Без согласия: {result['no_consent']}")
-        print(f"  Ваше реальное место: {result['real_position']}")
-        print(f"  Статус: {'✅ ПРОХОДИТЕ!' if result['is_safe'] else '❌ В ЗОНЕ РИСКА'}")
-        if not result['is_safe']:
-            print(f"  Должно уйти: {result['needs_to_leave']} человек")
-    
-    conn.close()
+    return result_list

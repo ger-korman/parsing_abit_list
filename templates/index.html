@@ -1,102 +1,76 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Трекер поступления</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; }
+        .container { max-width: 1600px; margin: 0 auto; }
         h1 { color: #1a237e; margin-bottom: 8px; }
         .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
         
+        .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .settings-card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
         .settings-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
         .form-group { display: flex; flex-direction: column; flex: 1 0 200px; min-width: 180px; }
         .form-group label { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; }
-        .form-group input, .form-group select { 
-            padding: 10px 14px; 
-            border: 2px solid #e0e0e0; 
-            border-radius: 8px; 
-            font-size: 16px; 
-            transition: 0.2s;
-            width: 100%;
-        }
+        .form-group input, .form-group select { padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: 0.2s; width: 100%; }
         .form-group input:focus, .form-group select:focus { border-color: #1a237e; outline: none; }
-        .form-group select { background: white; cursor: pointer; }
         
         .btn { padding: 10px 28px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .btn-primary { background: #1a237e; color: white; }
         .btn-primary:hover { background: #0d1445; }
-        .btn-secondary { background: #e0e0e0; color: #555; }
-        .btn-secondary:hover { background: #c8c8c8; }
-        .btn-secondary.active { background: #e8eaf6; color: #1a237e; }
-        .btn-success { background: #2e7d32; color: white; }
+        .btn-success { background: #2e7d32; color: white; padding: 6px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; }
         .btn-success:hover { background: #1b5e20; }
         
-        .saved-badge { color: #2e7d32; font-size: 14px; margin-left: 12px; }
-        .hidden { display: none; }
-        
-        .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .stat-card { background: white; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e8eaf6; }
-        .stat-value { font-size: 28px; font-weight: bold; color: #1a237e; }
-        .stat-label { color: #666; margin-top: 4px; font-size: 13px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .stat-card { background: white; border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e8eaf6; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #1a237e; }
+        .stat-label { color: #666; margin-top: 4px; font-size: 12px; }
         .stat-safe { color: #2e7d32; }
         .stat-danger { color: #c62828; }
-        .stat-warning { color: #e65100; }
         
-        .chart-container { height: 300px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
-        th { background: #e8eaf6; padding: 10px 8px; text-align: left; position: sticky; top: 0; z-index: 10; }
-        td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; }
+        .chart-container { width: 100%; height: 350px; position: relative; }
+        .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        @media (max-width: 1200px) { .two-columns { grid-template-columns: 1fr; } }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        th { background: #e8eaf6; padding: 8px 6px; text-align: left; position: sticky; top: 0; z-index: 10; }
+        td { padding: 8px 6px; border-bottom: 1px solid #e0e0e0; }
         tr:hover { background: #f5f7fa; }
         .highlight-row { background: #e3f2fd !important; border-left: 4px solid #1a237e; }
-        .highlight-row:hover { background: #bbdefb !important; }
+        .clickable-row { cursor: pointer; }
+        .active-row { background: #e3f2fd !important; border-left: 4px solid #1a237e; }
         
-        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
         .badge-safe { background: #c8e6c9; color: #2e7d32; }
         .badge-danger { background: #ffcdd2; color: #c62828; }
         .badge-warning { background: #fff3e0; color: #e65100; }
-        .badge-info { background: #e3f2fd; color: #0d47a1; }
         .badge-success { background: #e8f5e9; color: #1b5e20; }
+        .badge-secondary { background: #e0e0e0; color: #666; }
         
-        .loading { text-align: center; padding: 40px; color: #666; }
-        .status-box { padding: 16px 20px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+        .status-box { padding: 14px 18px; border-radius: 8px; font-weight: 600; margin: 12px 0; }
         .status-safe { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
         .status-danger { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
-        .status-warning { background: #fff3e0; color: #e65100; border-left: 4px solid #e65100; }
+        
         .empty-state { text-align: center; padding: 30px; color: #999; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .hidden { display: none; }
         
-        /* Легенда */
-        .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; font-size: 13px; }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .legend-color { width: 14px; height: 14px; border-radius: 4px; }
-        
-        /* Всплывающие подсказки */
-        .tooltip-trigger { cursor: help; border-bottom: 1px dashed #999; }
-        .tooltip-text { display: none; position: absolute; background: #333; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; max-width: 300px; z-index: 100; }
-        .tooltip-trigger:hover .tooltip-text { display: block; }
-        
-        /* Настройки интервала */
         .interval-settings { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
         .interval-settings label { font-size: 14px; color: #666; }
         .interval-settings input { width: 80px; padding: 6px 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; }
         
-        .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 900px) { .two-columns { grid-template-columns: 1fr; } }
         @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr 1fr; } .settings-form { flex-direction: column; } }
-        
-        /* Select2 стили */
-        .select2-container .select2-selection--single { height: 44px; padding: 4px; border-color: #e0e0e0; }
-        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 34px; }
-        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 42px; }
     </style>
 </head>
 <body>
@@ -104,84 +78,70 @@
         <h1>🎯 Трекер поступления</h1>
         <p class="subtitle">Отслеживайте свою позицию в конкурсных списках</p>
         
-        <!-- Настройки -->
         <div class="settings-card">
             <form id="settingsForm" class="settings-form">
-                <div class="form-group" style="flex: 1.5;">
-                    <label for="programSelect">Программа</label>
-                    <select id="programSelect" style="width: 100%;">
-                        <option value="">Выберите программу...</option>
-                    </select>
-                </div>
-                <div class="form-group" style="flex: 0.8;">
+                <div class="form-group" style="flex: 0 0 250px; min-width: 150px;">
                     <label for="userId">Ваш ID (sspvo_id)</label>
-                    <input type="text" id="userId" placeholder="Например: 1871234">
+                    <input type="text" id="userId" placeholder="Например: 1234567" style="width: 100%;">
                 </div>
                 <div class="form-group" style="flex: 0 0 auto; flex-direction: row; gap: 8px;">
                     <button type="button" id="searchBtn" class="btn btn-primary">🔍 Искать</button>
-                    <button type="button" id="saveBtn" class="btn btn-secondary">💾 Запомнить</button>
                 </div>
             </form>
             
-            <!-- Настройки интервала -->
             <div class="interval-settings">
                 <label>🔄 Интервал обновления:</label>
                 <input type="number" id="intervalInput" value="10" min="2" max="60">
                 <span>минут</span>
-                <button id="intervalApplyBtn" class="btn btn-success" style="padding:6px 16px;font-size:14px;">Применить</button>
+                <button id="intervalApplyBtn" class="btn-success">Применить</button>
                 <span id="intervalStatus" style="font-size:13px;color:#666;"></span>
             </div>
-            <div id="savedBadge" class="saved-badge hidden" style="margin-top:8px;">✅ Настройки сохранены</div>
         </div>
         
-        <div id="loading" class="loading">Введите ID и выберите программу, затем нажмите "Искать"</div>
+        <div id="programListSection" class="card hidden">
+            <h3>📋 Ваши программы</h3>
+            <div class="program-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Приоритет</th>
+                            <th>Код</th>
+                            <th>Программа</th>
+                            <th>Балл</th>
+                            <th>Место</th>
+                            <th>Реальное место</th>
+                            <th>КПЦ</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody id="programListBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">Введите ваш ID и нажмите "Искать"</div>
         
         <div id="dashboard" class="hidden">
-            <!-- Статистика -->
             <div class="stats-grid" id="stats"></div>
-            
-            <!-- Статус -->
             <div id="status" class="card"></div>
             
-            <!-- Две колонки: График и Анализ -->
             <div class="two-columns">
-                <!-- Левая колонка: График -->
                 <div class="card">
                     <h3>📈 История позиции</h3>
                     <div class="chart-container">
                         <canvas id="historyChart"></canvas>
                     </div>
-                    <div id="chartEmpty" class="empty-state">Нет данных для графика. Подождите, пока накопится история.</div>
+                    <div id="chartEmpty" class="empty-state">Нет данных для графика</div>
                 </div>
                 
-                <!-- Правая колонка: Анализ конкурентов -->
                 <div class="card">
-                    <h3>⚡ Анализ конкурентов</h3>
-                    
-                    <!-- Легенда -->
-                    <div class="legend">
-                        <span class="legend-item"><span class="legend-color" style="background:#c8e6c9;"></span> Уйдет на другую</span>
-                        <span class="legend-item"><span class="legend-color" style="background:#ffcdd2;"></span> Останется (конкурент)</span>
-                        <span class="legend-item"><span class="legend-color" style="background:#fff3e0;"></span> Без согласия</span>
-                        <span class="legend-item"><span class="legend-color" style="background:#e3f2fd;"></span> Вы</span>
-                    </div>
-                    
-                    <!-- Сводка -->
-                    <div id="competitorsSummary" style="margin-bottom:12px;padding:12px 16px;background:#f5f7fa;border-radius:8px;font-size:14px;">
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
-                            <div><span style="color:#666;">Всего выше</span> <strong id="totalAbove">-</strong></div>
-                            <div><span style="color:#666;">Останутся</span> <strong id="realCompetitors" style="color:#c62828;">-</strong></div>
-                            <div><span style="color:#666;">Уйдут</span> <strong id="willLeave" style="color:#2e7d32;">-</strong></div>
-                            <div><span style="color:#666;">Без согласия</span> <strong id="noConsent" style="color:#e65100;">-</strong></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Таблица -->
-                    <div style="max-height:500px;overflow-y:auto;position:relative;">
+                    <h3>⚡ Конкуренты</h3>
+                    <div style="max-height:450px; overflow-y:auto; position:relative; margin-top: 10px;">
                         <table>
                             <thead>
                                 <tr>
-                                    <th style="width:50px;">Поз.</th>
+                                    <th>Поз.</th>
                                     <th>ID</th>
                                     <th>Балл</th>
                                     <th>Приор.</th>
@@ -193,263 +153,225 @@
                             </tbody>
                         </table>
                     </div>
-                    <div id="noCompetitors" class="empty-state hidden">🎉 Никто не стоит выше вас!</div>
+                    <div id="noCompetitors" class="empty-state hidden">🎉 Вы первый в списке!</div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ==================== JS: Идеальная синхронизация с графиком ==================== -->
     <script>
-        let historyChart = null;
-        let programsList = [];
-        let autoUpdateInterval = null;
-        let currentIntervalMinutes = 10;
-        let currentConfig = null;
-        
-        // Инициализация Select2
-        function initProgramSelect(programs) {
-            programsList = programs;
-            
-            $('#programSelect').select2({
-                placeholder: 'Введите код или название программы...',
-                allowClear: true,
-                data: programs.map(p => ({
-                    id: p.id,
-                    text: `${p.code || ''} - ${p.name || p.title || 'Без названия'}`
-                })),
-                matcher: function(params, data) {
-                    if (!params.term || params.term === '') return data;
-                    const term = params.term.toLowerCase().trim();
-                    const text = data.text.toLowerCase();
-                    const code = data.id.toString();
-                    if (text.includes(term) || code.includes(term)) return data;
-                    return null;
-                }
-            });
-            
-            // Загружаем сохраненные настройки
-            const saved = localStorage.getItem('tracker_settings');
-            if (saved) {
-                try {
-                    const settings = JSON.parse(saved);
-                    if (settings.program_id) {
-                        $('#programSelect').val(settings.program_id).trigger('change');
-                    }
-                    if (settings.user_id) {
-                        document.getElementById('userId').value = settings.user_id;
-                    }
-                    if (settings.interval) {
-                        document.getElementById('intervalInput').value = settings.interval;
-                        currentIntervalMinutes = settings.interval;
-                    }
-                } catch (e) {}
-            }
-        }
-        
-        // Загрузка списка программ
-        async function loadPrograms() {
-            try {
-                const response = await fetch('/api/programs');
-                const programs = await response.json();
-                initProgramSelect(programs);
-            } catch (e) {
-                console.error('Ошибка загрузки программ:', e);
-            }
-        }
-        
-        // Поиск
+        let historyChart = null;             
+        let currentConfig = null;            
+        let autoUpdateInterval = null;       
+        let currentIntervalMinutes = 10;     
+        let userPrograms = [];               
+
         document.getElementById('searchBtn').addEventListener('click', async function() {
-            await search();
-        });
-        
-        // Запомнить
-        document.getElementById('saveBtn').addEventListener('click', function() {
             const userId = document.getElementById('userId').value.trim();
-            const programId = $('#programSelect').val();
-            const interval = parseInt(document.getElementById('intervalInput').value) || 10;
-            
-            if (!userId || !programId) {
-                alert('Введите ID и выберите программу');
-                return;
-            }
-            
-            localStorage.setItem('tracker_settings', JSON.stringify({
-                user_id: userId,
-                program_id: programId,
-                interval: interval
-            }));
-            
-            fetch('/api/save_user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, program_id: programId })
-            }).then(async response => {
-                const data = await response.json();
-                if (data.status === 'ok') {
-                    const badge = document.getElementById('savedBadge');
-                    badge.classList.remove('hidden');
-                    setTimeout(() => badge.classList.add('hidden'), 3000);
-                }
-            });
+            if (!userId) { alert('Введите ваш ID (sspvo_id)'); return; }
+            await search(userId);
         });
-        
-        // Интервал
+
+        document.getElementById('userId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') document.getElementById('searchBtn').click();
+        });
+
         document.getElementById('intervalApplyBtn').addEventListener('click', function() {
             const val = parseInt(document.getElementById('intervalInput').value);
             if (val < 2) { alert('Минимальный интервал: 2 минуты'); return; }
             if (val > 60) { alert('Максимальный интервал: 60 минут'); return; }
             currentIntervalMinutes = val;
-            
-            // Обновляем настройки
-            const saved = localStorage.getItem('tracker_settings');
-            if (saved) {
-                try {
-                    const settings = JSON.parse(saved);
-                    settings.interval = val;
-                    localStorage.setItem('tracker_settings', JSON.stringify(settings));
-                } catch (e) {}
-            }
-            
-            // Перезапускаем автообновление
             if (autoUpdateInterval) {
                 clearInterval(autoUpdateInterval);
                 startAutoUpdate(currentIntervalMinutes);
             }
-            
-            document.getElementById('intervalStatus').textContent = `✅ Интервал обновлен: ${val} мин`;
+            document.getElementById('intervalStatus').textContent = `✅ Интервал: ${val} мин`;
             setTimeout(() => document.getElementById('intervalStatus').textContent = '', 3000);
         });
-        
-        async function search() {
-            const userId = document.getElementById('userId').value.trim();
-            const programId = $('#programSelect').val();
-            
-            if (!userId) {
-                alert('Введите ваш ID (sspvo_id)');
-                return;
-            }
-            if (!programId) {
-                alert('Выберите программу');
-                return;
-            }
-            
-            const config = { user_id: userId, program_id: programId };
-            localStorage.setItem('tracker_settings', JSON.stringify({
-                ...config,
-                interval: currentIntervalMinutes
-            }));
-            
-            await loadData(config);
-        }
-        
-        async function loadData(config) {
-            if (!config || !config.user_id || !config.program_id) {
-                document.getElementById('loading').innerHTML = '👈 Введите ID и выберите программу, затем нажмите "Искать"';
-                document.getElementById('dashboard').classList.add('hidden');
-                return;
-            }
-            
-            currentConfig = config;
-            
+
+        async function search(userId) {
             try {
-                document.getElementById('loading').textContent = '⏳ Загрузка данных...';
+                document.getElementById('loading').textContent = '⏳ Загрузка...';
+                document.getElementById('dashboard').classList.add('hidden');
+                document.getElementById('programListSection').classList.add('hidden');
                 
-                const params = new URLSearchParams({
-                    user_id: config.user_id,
-                    program_id: config.program_id
-                });
+                const progRes = await fetch(`/api/user_programs?user_id=${encodeURIComponent(userId)}`);
+                const progData = await progRes.json();
                 
-                const statusRes = await fetch('/api/current_status?' + params);
-                const statusData = await statusRes.json();
-                
-                if (statusData.error) {
-                    document.getElementById('loading').innerHTML = '❌ ' + statusData.error;
-                    document.getElementById('dashboard').classList.add('hidden');
+                if (progData.error || !progData || progData.length === 0) {
+                    document.getElementById('loading').innerHTML = '❌ Пользователь не найден ни в одной программе';
                     return;
                 }
                 
-                const historyRes = await fetch('/api/history?' + params);
-                const historyData = await historyRes.json();
+                userPrograms = progData;
+                const programsWithData = [];
                 
-                updateDashboard(statusData, historyData);
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('dashboard').classList.remove('hidden');
-                
-                document.querySelector('.subtitle').textContent = 
-                    `${statusData.program_title || 'Программа'} | Ваш ID: ${statusData.user_id} | Балл: ${statusData.my_score}`;
-                
-                // Запускаем автообновление
-                if (autoUpdateInterval) {
-                    clearInterval(autoUpdateInterval);
+                for (const p of progData) {
+                    const statusRes = await fetch(`/api/current_status?user_id=${encodeURIComponent(userId)}&program_id=${p.program_id}`);
+                    const statusData = await statusRes.json();
+                    if (!statusData.error) {
+                        programsWithData.push({ ...p, ...statusData });
+                    }
                 }
-                startAutoUpdate(currentIntervalMinutes);
+                
+                if (programsWithData.length === 0) {
+                    document.getElementById('loading').innerHTML = '❌ Нет данных по вашим программам';
+                    return;
+                }
+                
+                programsWithData.sort((a, b) => (a.my_priority || 999) - (b.my_priority || 999));
+                userPrograms = programsWithData;
+                
+                // Рендерим таблицу БЕЗ расчета мест (мы досчитаем их в selectProgram, когда получим историю)
+                renderProgramList(userPrograms, null);
+                document.getElementById('programListSection').classList.remove('hidden');
+                document.getElementById('loading').style.display = 'none';
+                
+                if (userPrograms.length > 0) {
+                    selectProgram(userPrograms[0].program_id, userId);
+                }
                 
             } catch (e) {
-                document.getElementById('loading').innerHTML = '❌ Ошибка загрузки: ' + e.message;
+                document.getElementById('loading').innerHTML = '❌ Ошибка: ' + e.message;
             }
         }
-        
-        function startAutoUpdate(minutes) {
-            const ms = minutes * 60 * 1000;
-            autoUpdateInterval = setInterval(() => {
-                if (currentConfig) {
-                    loadData(currentConfig);
+
+        // === ОТРИСОВКА ТАБЛИЦЫ ===
+        function renderProgramList(programs, realPositionsMap) {
+            const tbody = document.getElementById('programListBody');
+            let html = '';
+            
+            programs.forEach(p => {
+                const myPosition = p.your_position || 0;
+                const places = p.budget_places || 0;
+                
+                // Если передан словарь реальных мест, берем из него. Иначе берем из статуса.
+                let realPosition = p.real_position || myPosition;
+                if (realPositionsMap && realPositionsMap[p.program_id] !== undefined) {
+                    realPosition = realPositionsMap[p.program_id];
                 }
-            }, ms);
+                
+                const isSafe = realPosition <= places;
+                const statusText = isSafe ? '✅ Проходите' : '🔥 На грани';
+                const statusColor = isSafe ? '#2e7d32' : '#c62828';
+                
+                html += `
+                    <tr class="clickable-row" data-program-id="${p.program_id}" onclick="selectProgram(${p.program_id}, '${p.user_id}')">
+                        <td><strong>${p.my_priority || '—'}</strong></td>
+                        <td>${p.code || '—'}</td>
+                        <td>${p.title || p.program_id}</td>
+                        <td><strong>${p.my_score || 0}</strong></td>
+                        <td>${myPosition}</td>
+                        <td>${realPosition}</td>
+                        <td><strong>${places}</strong></td>
+                        <td style="color:${statusColor};font-weight:600;">${statusText}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
         }
-        
-        function updateDashboard(status, history) {
-            // СТАТИСТИКА
-            const statsHtml = `
+
+        async function selectProgram(programId, userId) {
+            document.querySelectorAll('#programListBody tr').forEach(row => {
+                row.classList.remove('active-row');
+                if (row.dataset.programId == programId) row.classList.add('active-row');
+            });
+            
+            currentConfig = { user_id: userId, program_id: programId };
+            
+            const params = new URLSearchParams({ user_id: userId, program_id: programId });
+            const statusRes = await fetch('/api/current_status?' + params);
+            const statusData = await statusRes.json();
+            
+            if (statusData.error) return;
+            
+            const historyRes = await fetch('/api/history?' + params);
+            const historyData = await historyRes.json();
+            
+            // === СИНХРОНИЗАЦИЯ: Стягиваем последнее значение с графика ===
+            let realPositionFromHistory = null;
+            if (historyData.real_positions && historyData.real_positions.length > 0) {
+                realPositionFromHistory = historyData.real_positions[historyData.real_positions.length - 1];
+            }
+            
+            // Обновляем кеш и перерисовываем таблицу с правильным числом
+            const progIndex = userPrograms.findIndex(p => p.program_id == programId);
+            if (progIndex !== -1) {
+                userPrograms[progIndex] = { ...userPrograms[progIndex], ...statusData };
+                // Чтобы и другие программы в таблице подтянули верные данные, если у них есть история
+                // (здесь упрощенно: обновляем только текущую, т.к. загружаем историю только для одной)
+                renderProgramList(userPrograms);
+            }
+            
+            // Обновляем дашборд, передавая проверенное число
+            updateDashboard(statusData, historyData, realPositionFromHistory);
+            document.getElementById('dashboard').classList.remove('hidden');
+        }
+
+        // === ОБНОВЛЕНИЕ ДАШБОРДА ===
+        function updateDashboard(status, history, forceRealPosition) {
+            const allApplicants = status.all_applicants || [];
+            const myId = status.user_id;
+            const myPosition = status.your_position || 0;
+            const budgetPlaces = status.budget_places || 0;
+            
+            // ОПРЕДЕЛЯЕМ РЕАЛЬНОЕ МЕСТО. Приоритет: данные с графика -> данные статуса
+            let realPosition = forceRealPosition || status.real_position || myPosition;
+            
+            // Защита от дурака: если вдруг график вернул 0 или отрицательное число
+            if (realPosition === null || realPosition === undefined || realPosition < 1) {
+                realPosition = myPosition;
+            }
+            
+            // Если мы используем данные с графика, пересчитываем конкурентов как (Место - 1)
+            let realCompetitorsCount = 0;
+            if (forceRealPosition) {
+                realCompetitorsCount = realPosition - 1;
+            } else {
+                realCompetitorsCount = status.competitors_count || 0;
+            }
+            if (realCompetitorsCount < 0) realCompetitorsCount = 0;
+            
+            // 1. Статистика
+            document.getElementById('stats').innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-value ${status.is_safe ? 'stat-safe' : 'stat-danger'}">${status.real_position || status.your_position}</div>
+                    <div class="stat-value ${realPosition <= budgetPlaces ? 'stat-safe' : 'stat-danger'}">${realPosition}</div>
                     <div class="stat-label">Реальное место</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${status.your_position || '—'}</div>
-                    <div class="stat-label">Фактическое место</div>
+                    <div class="stat-value">${myPosition}</div>
+                    <div class="stat-label">По списку</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${status.budget_places}</div>
+                    <div class="stat-value">${budgetPlaces}</div>
                     <div class="stat-label">Бюджетных мест</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${status.total_applicants || 0}</div>
-                    <div class="stat-label">Всего с согласием</div>
+                    <div class="stat-value">${realCompetitorsCount}</div>
+                    <div class="stat-label">Конкурентов</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${status.real_threats || 0}</div>
-                    <div class="stat-label">Реальных конкурентов</div>
+                    <div class="stat-value">${status.needs_to_leave || 0}</div>
+                    <div class="stat-label">Нужно уйти</div>
                 </div>
             `;
-            document.getElementById('stats').innerHTML = statsHtml;
             
-            // СТАТУС
-            const agreementText = status.has_agreement ? '✅ Согласие есть' : '❌ Согласия нет';
-            let statusClass = status.is_safe ? 'status-safe' : 'status-danger';
+            // 2. Блок статуса
+            let statusClass = (realPosition <= budgetPlaces) ? 'status-safe' : 'status-danger';
+            let statusText = (realPosition <= budgetPlaces) ? '✅ ВЫ ПРОХОДИТЕ!' : '⚠️ ВЫ В ЗОНЕ РИСКА!';
             
-            let statusHtml = `
+            document.getElementById('status').innerHTML = `
                 <div class="status-box ${statusClass}">
                     <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
-                        <span style="font-size:18px;font-weight:700;">
-                            ${status.is_safe ? '✅ ВЫ ПРОХОДИТЕ!' : '⚠️ ВЫ В ЗОНЕ РИСКА!'}
-                        </span>
+                        <span style="font-size:18px;font-weight:700;">${statusText}</span>
                         <span style="font-weight:normal;">
-                            Реальное место ${status.real_position || status.your_position} из ${status.budget_places}
-                        </span>
-                        <span style="font-weight:normal;font-size:13px;color:#666;">
-                            ${agreementText}
+                            Реальное место ${realPosition} из ${budgetPlaces}
                         </span>
                     </div>
-                    ${!status.is_safe && status.needs_to_leave > 0 ? `
+                    ${realPosition > budgetPlaces ? `
                     <div style="margin-top:8px;font-size:14px;font-weight:normal;color:#666;">
-                        💡 Вам нужно, чтобы <strong>${status.needs_to_leave}</strong> конкурентов ушли на другие программы.
-                        <br>Сейчас выше вас: ${status.total_above || 0} человек, из них реально останутся: ${status.real_threats || 0}.
-                    </div>
-                    ` : ''}
-                    ${status.is_safe ? `
-                    <div style="margin-top:8px;font-size:14px;font-weight:normal;color:#2e7d32;">
-                        ✅ Вы проходите! Вас ${status.real_position || status.your_position} место.
+                        💡 Вам нужно, чтобы <strong>${realPosition - budgetPlaces}</strong> конкурентов ушли на другие программы.
                     </div>
                     ` : ''}
                     <div style="margin-top:4px;font-size:12px;color:#999;">
@@ -457,183 +379,152 @@
                     </div>
                 </div>
             `;
-            document.getElementById('status').innerHTML = statusHtml;
             
-            // КОНКУРЕНТЫ
-            const competitors = status.competitors || [];
-            const totalAbove = competitors.length;
-            
-            let realThreats = 0;
-            let willLeave = 0;
-            let noConsent = 0;
-            
-            competitors.forEach(c => {
-                if (!c.is_send_agreement) noConsent++;
-                else if (c.will_stay === false) willLeave++;
-                else realThreats++;
-            });
-            
-            document.getElementById('totalAbove').textContent = totalAbove;
-            document.getElementById('realCompetitors').textContent = realThreats;
-            document.getElementById('willLeave').textContent = willLeave;
-            document.getElementById('noConsent').textContent = noConsent;
-            
-            if (competitors.length === 0) {
+            // 3. Таблица конкурентов (отображаем только для текущей, если есть данные)
+            if (allApplicants.length === 0) {
                 document.getElementById('competitorsBody').innerHTML = '';
                 document.getElementById('noCompetitors').classList.remove('hidden');
-            } else {
-                document.getElementById('noCompetitors').classList.add('hidden');
-                
-                let tableHtml = '';
-                competitors.forEach(c => {
-                    const isYou = (c.sspvo_id === status.user_id);
-                    const isHighlight = isYou;
-                    
-                    let statusBadge = '';
-                    let solutionText = '';
-                    let solutionColor = '';
-                    let tooltipText = '';
-                    
-                    if (!c.is_send_agreement) {
-                        statusBadge = '<span class="badge badge-warning">без согласия</span>';
-                        solutionText = '❌ не конкурент';
-                        solutionColor = '#e65100';
-                        tooltipText = 'Абитуриент не подал согласие на зачисление, поэтому не может занять место.';
-                    } else if (c.will_stay === false) {
-                        statusBadge = '<span class="badge badge-success">уйдет</span>';
-                        solutionText = '✅ уйдет';
-                        solutionColor = '#2e7d32';
-                        tooltipText = c.reason || 'Проходит на более приоритетную программу и уйдет от вас.';
-                    } else {
-                        statusBadge = '<span class="badge badge-danger">останется</span>';
-                        solutionText = '⚠️ конкурент';
-                        solutionColor = '#c62828';
-                        tooltipText = c.reason || 'Это его главный приоритет, или он не проходит на более приоритетные программы.';
-                    }
-                    
-                    const rowClass = isHighlight ? 'highlight-row' : '';
-                    const statusText = c.status || '';
-                    const statusDisplay = statusText ? 
-                        (statusText === 'recommended' ? 'рекомендован' :
-                         statusText === 'pass_another' ? 'пройдет в др.' : statusText) : '—';
-                    
-                    tableHtml += `
-                        <tr class="${rowClass}">
-                            <td><strong>${c.position || '—'}</strong></td>
-                            <td><code>${c.sspvo_id || '—'}</code></td>
-                            <td><strong>${c.total_scores}</strong></td>
-                            <td>${c.priority || '—'}</td>
-                            <td>${statusBadge}</td>
-                            <td style="color:${solutionColor};font-weight:600;cursor:help;" title="${tooltipText}">
-                                ${solutionText}
-                            </td>
-                        </tr>
-                    `;
-                });
-                document.getElementById('competitorsBody').innerHTML = tableHtml;
+                return;
             }
+            document.getElementById('noCompetitors').classList.add('hidden');
             
-            // ГРАФИК
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
-
+            let html = '';
+            allApplicants.forEach(app => {
+                const isYou = (app.sspvo_id === myId);
+                let rowClass = isYou ? 'highlight-row' : '';
+                let rowStyle = (app.position > myPosition && !isYou) ? 'color: #999; background: #f9f9f9;' : '';
+                
+                let statusBadge = '';
+                let solutionText = '';
+                let solutionColor = '#666';
+                
+                if (isYou) {
+                    statusBadge = '<span class="badge" style="background:#e3f2fd;color:#1a237e;">ВЫ</span>';
+                    solutionText = '👤 ваше положение';
+                    solutionColor = '#1a237e';
+                } else if (app.position > myPosition) {
+                    statusBadge = '<span class="badge badge-secondary">ниже</span>';
+                    solutionText = '⬇️ ниже по списку';
+                    solutionColor = '#999';
+                } else if (!app.is_send_agreement) {
+                    statusBadge = '<span class="badge badge-warning">без согласия</span>';
+                    solutionText = '❌ не претендует';
+                    solutionColor = '#e65100';
+                } else if (app.status === 'pass_another' || app.status === 'recommended_other') {
+                    statusBadge = '<span class="badge badge-success">уйдет</span>';
+                    solutionText = '✅ уходит выше';
+                    solutionColor = '#2e7d32';
+                } else {
+                    statusBadge = '<span class="badge badge-danger">останется</span>';
+                    solutionText = '⚠️ конкурент';
+                    solutionColor = '#c62828';
+                }
+                
+                html += `
+                    <tr class="${rowClass}" style="${rowStyle}">
+                        <td><strong>${app.position || '—'}</strong></td>
+                        <td><code>${app.sspvo_id || '—'}</code></td>
+                        <td><strong>${app.total_scores}</strong></td>
+                        <td>${app.priority || '—'}</td>
+                        <td>${statusBadge}</td>
+                        <td style="color:${solutionColor};">${solutionText}</td>
+                    </tr>
+                `;
+            });
+            document.getElementById('competitorsBody').innerHTML = html;
+            
+            // 4. График
+            if (historyChart) { historyChart.destroy(); historyChart = null; }
+            
             if (history.times && history.times.length > 0) {
                 document.getElementById('chartEmpty').style.display = 'none';
                 const ctx = document.getElementById('historyChart').getContext('2d');
-                const times = history.times.map(t => new Date(t).toLocaleString());
-                const positions = history.positions;
-                const realPositions = history.real_positions || positions; // Если нет реальных — копируем
+                const kcpLine = new Array(history.times.length).fill(budgetPlaces);
                 
                 historyChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: times,
+                        labels: history.times.map(t => new Date(t).toLocaleString()),
                         datasets: [
                             {
-                                label: 'Фактическое место',
-                                data: positions,
+                                label: 'По списку',
+                                data: history.positions || [],
                                 borderColor: '#1a237e',
                                 backgroundColor: 'rgba(26, 35, 126, 0.1)',
                                 fill: true,
                                 tension: 0.1,
-                                pointBackgroundColor: '#1a237e',
                                 pointRadius: 4,
-                                pointBorderColor: '#1a237e',
-                                pointBorderWidth: 2,
                             },
                             {
                                 label: 'Реальное место',
-                                data: realPositions,
+                                data: history.real_positions || history.positions || [],
                                 borderColor: '#2e7d32',
                                 backgroundColor: 'rgba(46, 125, 50, 0.1)',
                                 fill: true,
                                 tension: 0.1,
                                 borderDash: [5, 5],
+                                pointRadius: 5,
                                 pointBackgroundColor: '#2e7d32',
-                                pointRadius: 4,
-                                pointBorderColor: '#2e7d32',
-                                pointBorderWidth: 2,
+                            },
+                            {
+                                label: `КЦП (${budgetPlaces})`,
+                                data: kcpLine,
+                                borderColor: '#c62828',
+                                backgroundColor: 'rgba(198, 40, 40, 0.05)',
+                                borderWidth: 2,
+                                borderDash: [10, 5],
+                                pointRadius: 0,
+                                fill: false,
                             }
                         ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: true },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return `${context.dataset.label}: ${context.parsed.y}`;
-                                    }
-                                }
-                            }
-                        },
+                        plugins: { legend: { display: true, position: 'top' } },
                         scales: {
                             y: {
                                 reverse: true,
-                                title: { display: true, text: 'Место', font: { size: 12 } },
+                                title: { display: true, text: 'Место' },
                                 ticks: { stepSize: 1 },
-                                min: 0
+                                min: 0,
                             },
                             x: {
-                                title: { display: true, text: 'Время', font: { size: 12 } },
-                                ticks: { maxTicksLimit: 15 }
+                                title: { display: true, text: 'Время' },
+                                ticks: { maxTicksLimit: 8 }
                             }
                         }
                     }
                 });
+            } else {
+                document.getElementById('chartEmpty').style.display = 'block';
             }
         }
-        
-        // Загружаем программы при старте
-        loadPrograms();
-        
-        // Автозагрузка сохраненных настроек
-        setTimeout(() => {
-            const saved = localStorage.getItem('tracker_settings');
-            if (saved) {
-                try {
-                    const settings = JSON.parse(saved);
-                    if (settings.user_id && settings.program_id) {
-                        if (settings.interval) {
-                            currentIntervalMinutes = settings.interval;
-                            document.getElementById('intervalInput').value = settings.interval;
-                        }
-                        setTimeout(() => loadData(settings), 1000);
+
+        function startAutoUpdate(minutes) {
+            const ms = minutes * 60 * 1000;
+            if (autoUpdateInterval) clearInterval(autoUpdateInterval);
+            autoUpdateInterval = setInterval(() => {
+                if (currentConfig) {
+                    selectProgram(currentConfig.program_id, currentConfig.user_id);
+                }
+            }, ms);
+        }
+
+        const saved = localStorage.getItem('tracker_settings');
+        if (saved) {
+            try {
+                const settings = JSON.parse(saved);
+                if (settings.user_id) {
+                    document.getElementById('userId').value = settings.user_id;
+                    if (settings.interval) {
+                        document.getElementById('intervalInput').value = settings.interval;
+                        currentIntervalMinutes = settings.interval;
                     }
-                } catch (e) {}
-            }
-        }, 1500);
-        
-        // Enter в поле ID запускает поиск
-        document.getElementById('userId').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('searchBtn').click();
-            }
-        });
+                    setTimeout(() => document.getElementById('searchBtn').click(), 500);
+                }
+            } catch (e) {}
+        }
     </script>
 </body>
 </html>
