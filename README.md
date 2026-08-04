@@ -24,7 +24,9 @@
 
 ```bash
 git clone https://github.com/ger-korman/parsing_abit_list.git
-cd itmo-tracker
+```
+```
+cd parsing_abit_list
 ```
 
 ### 2. Установите зависимости
