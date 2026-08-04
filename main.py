@@ -159,12 +159,53 @@ def start_web_server():
     except Exception as e:
         print(f"⚠️ Ошибка веб-сервера: {e}")
 
+try:
+    import pystray
+    from PIL import Image, ImageDraw
+    HAS_TRAY = True
+except ImportError:
+    HAS_TRAY = False
+
+def create_tray_icon():
+    """Создает иконку в системном трее."""
+    if not HAS_TRAY:
+        return
+    
+    # Создаем простую иконку
+    image = Image.new('RGB', (64, 64), color='#1a237e')
+    draw = ImageDraw.Draw(image)
+    draw.rectangle([16, 16, 48, 48], fill='#ffffff')
+    draw.text((20, 22), "IT", fill='#1a237e')
+    
+    def on_quit(icon, item):
+        icon.stop()
+        os._exit(0)
+    
+    def on_open(icon, item):
+        webbrowser.open("http://localhost:5000")
+    
+    # Меню при клике правой кнопкой
+    menu = pystray.Menu(
+        pystray.MenuItem("🌐 Открыть", on_open),
+        pystray.MenuItem("❌ Выйти", on_quit)
+    )
+    
+    icon = pystray.Icon("itmo_tracker", image, "ITMO Tracker", menu)
+    icon.run()
 
 def main():
     """Главная функция."""
     print("=" * 60)
     print("🎯 ITMO Tracker — Отслеживание позиции в конкурсных списках")
     print("=" * 60)
+
+    # Запускаем иконку в отдельном потоке
+    if HAS_TRAY:
+        tray_thread = threading.Thread(target=create_tray_icon, daemon=True)
+        tray_thread.start()
+        print("🖥️ Иконка в трее создана")
+    else:
+        print("⚠️ Для иконки в трее установите: pip install pystray pillow")
     
     # Проверяем конфиг
     if not USER_ID or USER_ID == "1871234":
