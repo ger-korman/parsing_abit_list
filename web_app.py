@@ -1,4 +1,3 @@
-# web_app.py
 import sqlite3
 import json
 import requests

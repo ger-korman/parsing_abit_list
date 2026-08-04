@@ -1,4 +1,3 @@
-# linker.py
 import sqlite3
 from typing import List, Dict
 from config import DB_PATH

@@ -1,10 +1,15 @@
-# .gitignore
 database.db
-*.db
-*.sqlite
-*.sqlite3
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.db
+*.sqlite
 venv/
 .venv/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+.env
+config_local.py
