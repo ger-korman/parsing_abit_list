@@ -5,9 +5,9 @@ import re
 from flask import Flask, render_template, jsonify, request, session
 from datetime import datetime
 import os
+from config import DB_PATH
 from analyzer import analyze_threats, get_competitors_list
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "parsing_abit_list.db")
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
