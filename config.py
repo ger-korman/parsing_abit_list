@@ -9,4 +9,4 @@ WEB_HOST = "127.0.0.1"
 WEB_PORT = 5000
 
 # ===== ПУТЬ К БАЗЕ ДАННЫХ =====
-DB_PATH = "database.db"
+DB_PATH = "parsing_abit_list.db"
