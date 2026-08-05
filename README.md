@@ -44,6 +44,7 @@ playwright install chromium
 USER_ID = "1234567"  # Ваш sspvo_id
 CHECK_INTERVAL = 15  # Минут между проверками
 ```
+
 Где найти sspvo_id? В личном кабинете абитуриента или на портале госуслуг
 
 ---
