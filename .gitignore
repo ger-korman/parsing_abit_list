@@ -14,4 +14,4 @@ Thumbs.db
 .env
 config_local.py
 .gitignore
-database.db
+parsing_abit_list.db
