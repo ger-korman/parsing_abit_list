@@ -20,14 +20,36 @@ def fetch_program_data(program_id):
     degree = get_degree(program_id)
     url = f"https://abit.itmo.ru/_next/data/NUJ_R0N1JIDBv5iu7R8Lb/ru/rating/{degree}/budget/{program_id}.json"
     params = {"degree": degree, "financing": "budget", "id": program_id}
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Connection": "keep-alive"
+    }
+    
     try:
         time.sleep(random.uniform(1.0, 2.5))
         response = requests.get(url, params=params, headers=headers, timeout=30)
         response.raise_for_status()
+        
+        # Проверяем, что это JSON
+        content_type = response.headers.get('Content-Type', '')
+        if 'application/json' not in content_type:
+            print(f"  ⚠️ Программа {program_id}: сервер вернул не JSON ({content_type})")
+            return None
+        
         return response.json()
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"  ⚠️ Программа {program_id} не найдена (404)")
+        else:
+            print(f"  ❌ HTTP ошибка {program_id}: {e}")
+        return None
+    except requests.exceptions.JSONDecodeError:
+        print(f"  ⚠️ Программа {program_id}: неверный JSON")
+        return None
     except Exception as e:
-        print(f"❌ Ошибка {program_id}: {e}")
+        print(f"  ❌ Ошибка {program_id}: {e}")
         return None
 
 def save_applicants(program_id, data):
